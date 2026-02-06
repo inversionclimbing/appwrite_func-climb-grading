@@ -1,1 +1,4 @@
 climb-grading.tar.gz
+.venv
+.env
+.DS_Store

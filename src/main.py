@@ -1,6 +1,8 @@
 from appwrite.client import Client
 from appwrite.services.tables_db import TablesDB
 from appwrite.query import Query
+from appwrite.permission import Permission
+from appwrite.role import Role
 import os
 from dotenv import load_dotenv
 import json
@@ -43,8 +45,8 @@ def main(context):
 
     tablesDB = TablesDB(client)
 
-    key = context.req.headers["x-appwrite-key"]
-    context.log(f"|DEBUG| Key: {key}")
+    #key = context.req.headers["x-appwrite-key"]
+    #context.log(f"|DEBUG| Key: {key}")
 
 
     context.log(f"{context.req}")
@@ -89,13 +91,14 @@ def main(context):
     context.log(f"|DEBUG| Average Grade: {averageGrade}")
 
     #Update climb grade according to result
-    tablesDB.update_row(
+    results = tablesDB.update_row(
         database_id = databaseId,
         table_id = climbsTable,
         row_id = climbId,
         data = {
             "grade": averageGrade,
-        }
+        },
+        permissions = [Permission.read(Role.any())]
     ); 
 
     context.log(f"|RESULT| Climb {climb.get('climbName')} grade updated to {averageGrade}")
