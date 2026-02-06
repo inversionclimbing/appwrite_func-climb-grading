@@ -30,8 +30,7 @@ def main(context):
             context.log(f"Could not parse body as JSON: {str(e)}")
     
     context.log("=== END REQUEST DEBUG ===") """
-    #payload = json.loads(context.req.body) if isinstance(context.req.body, str) else context.req.body
-    payload = json.loads(context.req.query) if isinstance(context.req.query, str) else context.req.query
+    payload = json.loads(context.req.body) if isinstance(context.req.body, str) else context.req.body
 
     grades = []
 
@@ -39,39 +38,31 @@ def main(context):
         Client()
         .set_endpoint(os.environ["APPWRITE_FUNCTION_API_ENDPOINT"])
         .set_project(os.environ["APPWRITE_FUNCTION_PROJECT_ID"])
-        .set_key(context.req.headers["x-appwrite-key"])
+        .set_key(os.environ["APPWRITE_API_KEY"])
     )
 
     tablesDB = TablesDB(client)
 
+    key = context.req.headers["x-appwrite-key"]
+    context.log(f"|DEBUG| Key: {key}")
+
 
     context.log(f"{context.req}")
-    climb_data = payload['climbId']
-    climbId = climb_data.get('$id')
-    context.log(f"Updating grade for {climbId}")
+    climb = payload['climbId']
+    climbId = climb.get('$id')
+    currentGrade = climb.get('grade')
+    context.log(f"|DEBUG| Climb: {climb}")
+    context.log(f"|DEBUG| Climb ID: {climbId}")
+    context.log(f"|DEBUG| Current Climb Grade: {currentGrade}")
 
-    climb = tablesDB.get_row(
-        database_id = databaseId,
-        table_id = climbsTable, 
-        row_id = climbId 
-    )
 
-    boardId = climb['boardId']
-    print(boardId)
-
-    board = tablesDB.get_row(
-        database_id = databaseId,
-        table_id = boardsTable,
-        row_id = boardId
-    )
-
-    currentGrade = climb['grade']
-    communityGrading = board['communityGrading']
-    print(currentGrade)
-    print(communityGrading)
+    board = climb['boardId']
+    communityGrading = board.get('communityGrading')
+    context.log(f"|DEBUG| Board: {board}")
+    context.log(f"|DEBUG| Community Grading: {communityGrading}")
     
     if communityGrading == False and currentGrade != 0:
-        context.log(f"Message: Community grading is off. No updated made")
+        context.log(f"|RESULT| Community grading is off. No updated made")
         return
 
     queryGrades = tablesDB.list_rows(
@@ -83,22 +74,30 @@ def main(context):
         ]
     )
 
+    context.log(f"|DEBUG| Grade Query Results: {queryGrades}")
+
     #Make a list of all the grade values
     for grade in queryGrades['rows']:
-        grades.append(grade['climbGrade'])
+        grades.append(grade.get('climbGrade'))
+
+    context.log(f"|DEBUG| List of Grades: {grades}")
 
     #Round average value to lower number (i.e. 3.9 => 3)
     averageGrade = int(sum(grades)/len(grades))
-    update_data = {'grade': averageGrade}
+    #update_data = {"grade": averageGrade}
+
+    context.log(f"|DEBUG| Average Grade: {averageGrade}")
 
     #Update climb grade according to result
     tablesDB.update_row(
         database_id = databaseId,
         table_id = climbsTable,
         row_id = climbId,
-        data = update_data
+        data = {
+            "grade": averageGrade,
+        }
     ); 
 
-    context.log(f"Message: Climb grade updated to {averageGrade}")
+    context.log(f"|RESULT| Climb {climb.get('climbName')} grade updated to {averageGrade}")
 
     return
